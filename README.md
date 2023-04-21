@@ -10,15 +10,31 @@ system).
 - Move: All values in Rust can be moved in memory, which means to
 copy the contents of the value and make the old value invalid. This is
 a combination of pass-by-value semantics and use-at-most-once logic.
-- Pinning: If there is a shared reference `&T`, then the memory address
-of the `T` value itself probably (I think?) can't be moved. On the
-other hand, if under `&mut T`, an *exclusive* reference, the value
-itself can be freely moved under any circumstances. Particularly,
-`mem::swap(&mut _, &mut _)` can be used to copy the de-referenced
-contents of the left and right values, respectively, and assign them
-into each other's opposite memory addresses. So, in Rust, pinning is
-implemented by *hiding the `&mut T` exclusive references*, and relying
-on `AsRef<_>` and `Deref<_>` to carry out memory accesses indirectly.
+- Problem: From time to time, asynchronous code requires a pointer address
+to be stable, which is incompatible with the possibility of moving.
+In safe, sync code, it is impossible for a reference to assume a
+different memory address before the reference itself is destroyed due to
+the action of a different thread of execution. But in async code, it's
+possible and permitted in safe Rust. Forcing async code to not rely on a
+stable reference across await points is a difficult restriction.
+- Pinning: disallows a value from being moved, guaranteeing a stable
+memory address for any reference relative to the value.
+- Mechanism: a value behind any `&mut _` (exclusive reference) can be
+moved at any time in safe Rust. Thus, pinning introduces an abstraction,
+the `Pin<_>` smart pointer, that *absorbs* and *hides* the exclusive
+reference and only exposes it over the `AsRef<_>` and `Deref<_>` traits.
+- `Pin<_>` supports other types of pointers as well.
+- Deep Dive: suppose a piece of async code creates an array (`a`)
+and a slice of the vector called `s`. In async code, the state of a
+(green) thread turns into a Rust structure (a future) that has the
+`s` and `a` fields, respectively. Suppose this structure is at the address `f`.
+Then, `f = &a` at all times and, at some point, `s = f + (constant)`.
+*Now*, if the future moves to, say, `g`, a different pointer address, then
+`&a` is now `g` by contract, but, `s` stays at `f + (constant)`. To solve
+this problem, Rust decided that the future may not move across different
+memory addresses. Since moves can be done either by ownership or by
+holding an exclusive access, Rust decided to protect the future itself
+from getting moved by protecting its mutable reference.
 - `Pin<&mut _>`: Takes an exclusive reference `&mut T` and then hides
 it. It implements the appropriate `AsRef` and `Deref` traits to allow
 indirect access.
