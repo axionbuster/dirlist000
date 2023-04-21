@@ -68,6 +68,9 @@ inside it: `struct MyStruct(())` for example.
 of functions to implement (generically), so I used a trait for that.
 Only structures or other traits can implement a trait. My implementation,
 by using Tokio, didn't have a need to keep any state, so I used a ZST.
+- Admittedly, the Dependency Injection isn't fully implemented.
+I have separated the interface (trait `Vfs`) and the implementation
+(`TokioVfs`), but I don't have the *injection* part.
 
 ## Demo: Directory Listing
 
