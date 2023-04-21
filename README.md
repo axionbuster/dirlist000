@@ -88,6 +88,26 @@ by using Tokio, didn't have a need to keep any state, so I used a ZST.
 I have separated the interface (trait `Vfs`) and the implementation
 (`TokioVfs`), but I don't have the *injection* part.
 
+## Caveat: `async-trait` allocates per function call
+
+Async traits are currently unsupported in stable Rust at the time of
+writing.
+
+The popular `async-trait` crate can annotate a trait as containing
+asynchronous methods. It is implemented by *allocating a new future in the heap*
+*for each function call.*
+
+There are many subtle problems with typing, lifetimes and pinning
+involved with async traits using stack allocation, which prevents
+it from getting landed in stable Rust without juggling through all the
+discrete math minefield. So, the Rust team has decided to be patient.
+(It's available in nightly Rust, however.)
+
+The key difficulty seems to be that a future specified by an async
+trait function has to be generically defined in the trait, and lifetimes and
+pinning semantics seem to become somehow very complex (?) in generic
+contexts.
+
 ## Demo: Directory Listing
 
 ![Screenshot](sshot.png "Screenshot")
